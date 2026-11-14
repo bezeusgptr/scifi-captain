@@ -1,7 +1,7 @@
 import {
   getState, getSettings, eventRemainingMs, formatTimer, formatStardate,
   SKILL_LABELS, getOfficer, OFFICERS, statusWord, barClass, outcomeLabel,
-  relationWord, aiConfigured,
+  relationWord, aiConfigured, systemMod,
 } from "./engine.js";
 import { DEPARTMENTS, initials } from "./officers.js";
 
@@ -151,16 +151,29 @@ function renderEnding(st) {
   </div>`;
 }
 
+function checkHint(o, ev) {
+  const off = o.officerId ? getOfficer(o.officerId) : null;
+  const skill = SKILL_LABELS[o.skill] || o.skill;
+  const dc = ev.difficulty + (o.dcMod || 0);
+  const bonus = (off ? off.stats[o.skill] || 0 : 0) + systemMod(getState().ship, o.skill);
+  let need = Math.min(20, Math.max(2, dc - bonus));
+  const pct = Math.round(((21 - need) / 20) * 100);
+  const b = (bonus >= 0 ? "+" : "−") + Math.abs(bonus);
+  return `${skill} · d20 ${b}${off ? " (" + off.name + ")" : ""} против Сл. ${dc} · шанс ≈ ${pct}%`;
+}
+
 function diceBlock(roll) {
   if (!roll) return "";
   const off = roll.officerId ? getOfficer(roll.officerId) : null;
-  const sys = roll.sys ? `, системы ${roll.sys > 0 ? "+" : ""}${roll.sys}` : "";
-  const who = off ? `, ${off.name}` : "";
+  const sgn = (n) => (n >= 0 ? "+" : "−") + Math.abs(n);
+  const parts = [`бросок d20: ${roll.d20}`];
+  if (off) parts.push(`${off.name}: ${sgn(roll.offMod)}`);
+  if (roll.sys) parts.push(`повреждение систем: ${sgn(roll.sys)}`);
   return `<div class="dice">
     <div class="kicker">Проверка · ${esc(SKILL_LABELS[roll.skill] || roll.skill)}</div>
-    <div class="roll">${roll.d20} ${roll.modifier >= 0 ? "+" : "−"}${Math.abs(roll.modifier)} = ${roll.total}</div>
-    <p class="small muted">против сложности ${roll.dc}${who}${sys}</p>
-    <div><span class="badge ${esc(roll.result)}">${outcomeLabel(roll.result)}${roll.d20 === 20 ? " · 20" : roll.d20 === 1 ? " · 1" : ""}</span></div>
+    <div class="roll">${roll.total} против Сл. ${roll.dc}</div>
+    <p class="small muted">${esc(parts.join(" · "))} = ${roll.total}. Нужно набрать ${roll.dc} или больше.</p>
+    <div><span class="badge ${esc(roll.result)}">${outcomeLabel(roll.result)}${roll.d20 === 20 ? " · natural 20" : roll.d20 === 1 ? " · natural 1" : ""}</span></div>
   </div>`;
 }
 
@@ -248,7 +261,7 @@ export function renderEvent(st) {
           const who = off ? ` · ${off.name}` : "";
           return `<button class="option" type="button" data-act="choose" data-id="${esc(o.id)}">
             <div class="ot">${esc(o.text)}</div>
-            <div class="meta">${esc(skill)} · Сл. ${ev.difficulty + (o.dcMod || 0)}${esc(who)}</div>
+            <div class="meta">${esc(checkHint(o, ev))}</div>
           </button>`;
         })
         .join("")}
