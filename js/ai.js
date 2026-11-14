@@ -132,7 +132,7 @@ const EVENT_SCHEMA = `Верни JSON-объект такой формы:
     }
   ]
 }
-Правила: текст только по-русски. 3 варианта, советы минимум от 3 офицеров, они СПОРЯТ. changes — целые числа, умеренные (обычно от -16 до +12). Не убивай кампанию без нужды. Не повторяй недавние события журнала. difficulty от 8 до 18.`;
+Правила: текст только по-русски. 3 варианта, советы минимум от 3 офицеров, они СПОРЯТ. changes — целые числа, умеренные (обычно от -16 до +12). Топливо тратится умеренно: обычно от -1 до -6 за событие, не больше -8. Если топлива мало (меньше 35), чаще давай вариант дозаправиться (станция, газовый гигант, танкер, торговля) с fuel от +8 до +20. Без топлива миссия проваливается. Не убивай кампанию без нужды. Не повторяй недавние события журнала. difficulty от 8 до 18.`;
 
 export async function generateEventAI(state, settings) {
   const { json } = await chatCompletion(settings, [
@@ -197,6 +197,7 @@ function clampChanges(ch) {
   const out = { crew: 0, fuel: 0, hull: 0, supplies: 0, systems: {}, relations: {}, goals: {} };
   if (!ch || typeof ch !== "object") return out;
   for (const k of ["crew", "fuel", "hull", "supplies"]) out[k] = Math.max(-25, Math.min(25, num(ch[k])));
+  out.fuel = Math.max(-8, Math.min(20, out.fuel));
   if (ch.systems && typeof ch.systems === "object") {
     for (const k of ["engines", "lifeSupport", "weapons", "science"]) {
       if (ch.systems[k] != null) out.systems[k] = Math.max(-25, Math.min(25, num(ch.systems[k])));

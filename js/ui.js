@@ -1,7 +1,7 @@
 import {
   getState, getSettings, eventRemainingMs, formatTimer, formatStardate,
   SKILL_LABELS, getOfficer, OFFICERS, statusWord, barClass, outcomeLabel,
-  relationWord, aiConfigured, systemMod,
+  relationWord, aiConfigured, systemMod, canRefuel, REFUEL_GAIN, REFUEL_SUPPLIES,
 } from "./engine.js";
 import { DEPARTMENTS, initials } from "./officers.js";
 
@@ -108,6 +108,7 @@ export function renderBridge(st) {
         ${resBar("Корпус", s.hull)}
         ${resBar("Запасы", s.supplies)}
       </div>
+      ${refuelPanel(st, true)}
       ${!st.gameOver && !evPending ? `<button class="btn btn-primary" type="button" data-act="continue" id="btn-continue">Продолжить полёт</button>` : ""}
       <div class="nav-grid" style="margin-top:12px">
         <button class="nav-btn" type="button" data-act="go" data-screen="event">
@@ -425,6 +426,20 @@ const SHIP_GLYPH = `        /\\
        \\_||_/
          ^^`;
 
+function refuelPanel(st, compact) {
+  if (st.gameOver || st.phase !== "play") return "";
+  const c = canRefuel();
+  const low = st.ship.fuel < 25;
+  const warn = low ? `<p class="small" style="color:var(--red,#e05)">Топлива мало. Если баки опустеют, корабль потеряет ход и миссия будет провалена.</p>` : "";
+  if (compact && st.ship.fuel >= 40) return "";
+  return `<div class="panel">
+    <div class="kicker">Топливо</div>
+    ${warn}
+    <p class="small muted">Бюссардовские коллекторы: +${REFUEL_GAIN}% топлива за ${REFUEL_SUPPLIES}% запасов, один раз на отрезок пути.</p>
+    ${c.ok ? `<button class="btn btn-amber" type="button" data-act="refuel">Собрать топливо коллекторами</button>` : `<p class="small faint">${esc(c.reason)}</p>`}
+  </div>`;
+}
+
 export function renderShip(st) {
   const s = st.ship;
   return `<div class="screen">
@@ -440,6 +455,7 @@ export function renderShip(st) {
         ${resBar("Корпус", s.hull)}
         ${resBar("Запасы", s.supplies)}
       </div>
+      ${refuelPanel(st, false)}
       <div class="panel">
         <div class="kicker">Системы</div>
         ${SYS.map(([k, name]) => {

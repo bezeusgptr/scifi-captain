@@ -1,7 +1,7 @@
 import {
   initEngine, getState, getSettings, subscribe, acceptCommand, startNewGame,
   startEvent, resolveOption, resolveFreeText, resolveByXO, dismissEvent,
-  addCaptainNote, talkToOfficer, updateSettings, eventRemainingMs,
+  addCaptainNote, talkToOfficer, updateSettings, eventRemainingMs, refuel,
 } from "./engine.js";
 import { testConnection } from "./ai.js";
 import { renderScreen, updateTimersInPlace } from "./ui.js";
@@ -187,6 +187,11 @@ async function onAction(act, el, ev) {
     await doContinue();
     return;
   }
+  if (act === "refuel") {
+    refuel();
+    paint();
+    return;
+  }
   if (act === "choose") {
     const r = resolveOption(el.dataset.id, "captain");
     if (r) paint();
@@ -357,7 +362,7 @@ function boot() {
   window.__game = {
     getState, getSettings, go, startEvent, startNewGame, resolveOption,
     resolveFreeText, resolveByXO, dismissEvent, acceptCommand, updateSettings,
-    talkToOfficer, eventRemainingMs,
+    talkToOfficer, eventRemainingMs, refuel,
   };
 }
 

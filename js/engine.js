@@ -88,7 +88,7 @@ function defaultShip() {
     registry: "НКФ-042",
     crew: 318,
     crewMax: 350,
-    fuel: 82,
+    fuel: 100,
     hull: 100,
     supplies: 74,
     systems: { engines: 100, lifeSupport: 100, weapons: 96, science: 100 },
@@ -297,10 +297,10 @@ function maybeGameOver() {
       title: "Экипаж потерян",
       text: "На борту не осталось людей, способных держать корабль. История «Странника» обрывается.",
     };
-  } else if (state.ship.fuel <= 0 && state.ship.systems.engines <= 0) {
+  } else if (state.ship.fuel <= 0) {
     state.gameOver = {
-      title: "Дрейф без хода",
-      text: "Топливо и двигатели кончились разом. «Странник» дрейфует в тишине, ожидая, кого штаб пришлёт слишком поздно.",
+      title: "Миссия провалена: дрейф без хода",
+      text: "Топливо кончилось. «Странник» не может ни продолжить путь, ни вернуться на «Бастион» и дрейфует, подавая сигнал бедствия. Приказ штаба не выполнен.",
     };
   } else if (state.mission.goals.every((g) => g.done)) {
     state.gameOver = {
@@ -309,6 +309,30 @@ function maybeGameOver() {
       victory: true,
     };
   }
+}
+
+export const REFUEL_GAIN = 12;
+export const REFUEL_SUPPLIES = 4;
+
+export function canRefuel() {
+  if (!state || state.phase !== "play" || state.gameOver) return { ok: false, reason: "Сейчас дозаправка невозможна." };
+  if (state.event && state.event.status === "pending") return { ok: false, reason: "Сначала решите текущее событие." };
+  if (state.lastRefuelDay === state.day) return { ok: false, reason: "Коллекторы уже работали на этом отрезке пути. Продолжите полёт." };
+  if (state.ship.fuel >= 100) return { ok: false, reason: "Баки полны." };
+  if (state.ship.systems.engines < 25) return { ok: false, reason: "Двигатели слишком повреждены для работы коллекторов." };
+  if (state.ship.supplies < REFUEL_SUPPLIES) return { ok: false, reason: "Не хватает запасов на обслуживание коллекторов." };
+  return { ok: true };
+}
+
+export function refuel() {
+  const c = canRefuel();
+  if (!c.ok) return c;
+  const deltas = applyChanges({ fuel: REFUEL_GAIN, supplies: -REFUEL_SUPPLIES });
+  state.lastRefuelDay = state.day;
+  state.stardate = Math.round((state.stardate + 0.05) * 10) / 10;
+  addLog("officer", "Лейтенант-коммандер Орлов", `Коллекторы собрали межзвёздный водород, топливо пополнено. Расход запасов на обслуживание.`, "engineering");
+  emit();
+  return { ok: true, deltas };
 }
 
 function instantiateEvent(ev, timerSec) {
@@ -346,7 +370,7 @@ export async function startEvent({ forceId, preferAi = true } = {}) {
 
   state.stardate = Math.round((state.stardate + 0.15) * 10) / 10;
   state.day += 1;
-  if (state.ship.fuel > 0) state.ship.fuel = clamp(state.ship.fuel - 2, 0, 100);
+  if (state.ship.fuel > 0) state.ship.fuel = clamp(state.ship.fuel - 1, 0, 100);
 
   state.event = instantiateEvent(ev, settings.timerSec);
   if (!state.eventHistory.includes(ev.id)) state.eventHistory.push(ev.id);
@@ -493,17 +517,17 @@ function genericFreeTextOption(text, ev) {
       success: {
         narration: `Экипаж понимает нестандартный приказ и выполняет его достаточно чисто. Замысел капитана («${short}») вписывается в обстоятельства и даёт результат.`,
         log: "Нестандартный приказ капитана выполнен успешно.",
-        changes: { fuel: -3, supplies: -2, goals: ev.skill === "science" ? { scan: 0.5 } : {} },
+        changes: { fuel: -2, supplies: -2, goals: ev.skill === "science" ? { scan: 0.5 } : {} },
       },
       partial: {
         narration: `Приказ («${short}») выполняют, но выходит шероховато: часть задуманного срабатывает, часть приходится добирать по месту.`,
         log: "Нестандартный приказ капитана выполнен частично.",
-        changes: { fuel: -5, supplies: -3 },
+        changes: { fuel: -3, supplies: -3 },
       },
       fail: {
         narration: `Нестандартный замысел («${short}») сталкивается с реальностью и не срабатывает. Корабль отделывается умеренными потерями — к счастью, не катастрофой.`,
         log: "Нестандартный приказ капитана не удался.",
-        changes: { fuel: -6, hull: -6, supplies: -3 },
+        changes: { fuel: -3, hull: -6, supplies: -3 },
       },
     },
   };
